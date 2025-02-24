@@ -14,25 +14,28 @@
 #import "SMCalloutView.h"
 #import "RCTConvert+AirMap.h"
 #import "AIRMapCalloutSubview.h"
+#import "RNMapsAirModuleDelegate.h"
 
+@class AIRMapCoordinate;
 @class AIRMapMarker;
 
 extern const NSTimeInterval AIRMapRegionChangeObserveInterval;
 extern const CGFloat AIRMapZoomBoundBuffer;
 extern const NSInteger AIRMapMaxZoomLevel;
 
-@interface AIRMap: MKMapView<SMCalloutViewDelegate>
+@interface AIRMap: MKMapView<SMCalloutViewDelegate, RNMapsAirModuleDelegate>
 
 @property (nonatomic, strong) SMCalloutView *calloutView;
 @property (nonatomic, strong) UIImageView *cacheImageView;
 @property (nonatomic, strong) UIView *loadingView;
 
 @property (nonatomic, copy) NSString *userLocationAnnotationTitle;
-@property (nonatomic, assign) BOOL followUserLocation;
+@property (nonatomic, assign) BOOL followsUserLocation;
 @property (nonatomic, assign) BOOL userLocationCalloutEnabled;
 @property (nonatomic, assign) BOOL hasStartedRendering;
 @property (nonatomic, assign) BOOL cacheEnabled;
 @property (nonatomic, assign) BOOL loadingEnabled;
+@property (nonatomic, assign) BOOL handlePanDrag;
 @property (nonatomic, assign) BOOL legacyZoomConstraintsEnabled;
 @property (nonatomic, strong) UIColor *loadingBackgroundColor;
 @property (nonatomic, strong) UIColor *loadingIndicatorColor;
@@ -41,9 +44,9 @@ extern const NSInteger AIRMapMaxZoomLevel;
 @property (nonatomic, assign) CGFloat maxDelta;
 @property (nonatomic, assign) UIEdgeInsets legalLabelInsets;
 @property (nonatomic, assign) MKCoordinateRegion initialRegion;
-@property (nonatomic, assign) MKMapCamera *initialCamera;
-@property (nonatomic, assign) CGFloat minZoomLevel;
-@property (nonatomic, assign) CGFloat maxZoomLevel;
+@property (nonatomic, retain) MKMapCamera *initialCamera;
+@property (nonatomic, assign) CGFloat minZoom;
+@property (nonatomic, assign) CGFloat maxZoom;
 @property (nonatomic, assign) CGPoint compassOffset;
 @property (nonatomic, assign) UIEdgeInsets mapPadding;
 
@@ -79,5 +82,6 @@ extern const NSInteger AIRMapMaxZoomLevel;
 
 - (AIRMapMarker*) markerAtPoint:(CGPoint)point;
 - (NSDictionary*) getMarkersFramesWithOnlyVisible:(BOOL)onlyVisible;
-
+- (void)insertReactSubview:(id<RCTComponent>)subview atIndex:(NSInteger)atIndex;
+-(void) fitToCoordinates:(NSArray<AIRMapCoordinate*>*) coordinates edgePadding:(UIEdgeInsets) edgeInsets animated:(Boolean) animated;
 @end

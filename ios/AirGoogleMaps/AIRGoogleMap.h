@@ -13,9 +13,10 @@
 #import <GoogleMaps/GoogleMaps.h>
 #import <MapKit/MapKit.h>
 #import "AIRGMSMarker.h"
-#import "RCTConvert+AirMap.h"
+#import "RNMapsAirModuleDelegate.h"
+#import "AIRGoogleMapCoordinate.h"
 
-@interface AIRGoogleMap : GMSMapView
+@interface AIRGoogleMap : GMSMapView <RNMapsAirModuleDelegate>
 
 // TODO: don't use MK region?
 @property (nonatomic, weak) RCTBridge *bridge;
@@ -66,6 +67,7 @@
 @property (nonatomic, assign) BOOL showsIndoorLevelPicker;
 @property (nonatomic, assign) NSString *kmlSrc;
 
+- (BOOL) isReady;
 - (void)didPrepareMap;
 - (void)mapViewDidFinishTileRendering;
 - (BOOL)didTapMarker:(GMSMarker *)marker;
@@ -84,6 +86,10 @@
 
 - (NSDictionary*) getMarkersFramesWithOnlyVisible:(BOOL)onlyVisible;
 - (instancetype)initWithMapId:(NSString *)mapId initialCamera:(GMSCameraPosition*) camera backgroundColor:(UIColor *) backgroundColor andZoomTapEnabled:(BOOL)zoomTapEnabled;
+-(void) fitToSuppliedMarkers:(NSArray*) markers withEdgePadding:(NSDictionary*) edgePadding animated:(BOOL)animated;
+-(void) fitToCoordinates:(NSArray<AIRGoogleMapCoordinate *> *) coordinates withEdgePadding:(NSDictionary*) edgePadding animated:(BOOL)animated;
+-(void) fitToElementsWithEdgePadding:(nonnull NSDictionary *)edgePadding
+             animated:(BOOL)animated;
 @end
 
 #endif

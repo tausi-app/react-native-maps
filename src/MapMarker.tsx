@@ -6,6 +6,7 @@ import {
   ViewProps,
   ImageURISource,
   ImageRequireSource,
+  Platform,
 } from 'react-native';
 
 import decorateMapComponent, {
@@ -20,6 +21,10 @@ import {
   Commands,
   MapMarkerNativeComponentType,
 } from './MapMarkerNativeComponent';
+
+import {Commands as FabricCommands} from './specs/NativeComponentMarker';
+import type {AppleMarkerPriority} from './specs/NativeComponentMarker';
+
 import {
   CalloutPressEvent,
   LatLng,
@@ -31,6 +36,8 @@ import {
   Point,
 } from './sharedTypes';
 import {Modify} from './sharedTypesInternal';
+
+import {PROVIDER_GOOGLE} from './ProviderConstants';
 
 type AppleMarkerVisibility = 'hidden' | 'adaptive' | 'visible';
 
@@ -73,7 +80,7 @@ export type MapMarkerProps = ViewProps & {
    *
    * @default {x: 0.0, y: 0.0}
    * @platform iOS: Apple Maps only. For Google Maps, see the `calloutAnchor` prop
-   * @platform Android: Not supported. See see the `calloutAnchor` prop
+   * @platform Android: Not supported. see the `calloutAnchor` prop
    */
   calloutOffset?: Point;
 
@@ -86,7 +93,7 @@ export type MapMarkerProps = ViewProps & {
    *
    * @default {x: 0.0, y: 0.0}
    * @platform iOS: Apple Maps only. For Google Maps, see the `anchor` prop
-   * @platform Android: Not supported. See see the `anchor` prop
+   * @platform Android: Not supported. see the `anchor` prop
    */
   centerOffset?: Point;
 
@@ -319,6 +326,18 @@ export type MapMarkerProps = ViewProps & {
   zIndex?: number;
 
   /**
+   Constants that indicates the display priority for annotations.
+   @default required
+   @platform iOS: Apple Maps only.
+   @platform Android: Not supported
+
+    Required: A constant indicating that the item is required.
+    High: A constant indicating that the item’s display priority is high.
+    Low: A constant indicating that the item’s display priority is Low.
+   */
+  displayPriority?: AppleMarkerPriority;
+
+  /**
    * Visibility of the title text rendered beneath Marker balloon
    * @platform iOS: Apple Maps only
    * @platform Android: Not supported
@@ -360,6 +379,7 @@ export class MapMarker extends React.Component<MapMarkerProps> {
   static Animated: Animated.AnimatedComponent<typeof MapMarker>;
 
   private marker: NativeProps['ref'];
+  private fabricMarker?: Boolean = undefined;
 
   constructor(props: MapMarkerProps) {
     super(props);
@@ -379,35 +399,69 @@ export class MapMarker extends React.Component<MapMarkerProps> {
 
   showCallout() {
     if (this.marker.current) {
-      Commands.showCallout(this.marker.current);
+      if (this.fabricMarker) {
+        // @ts-ignore
+        FabricCommands.showCallout(this.marker.current);
+      } else {
+        Commands.showCallout(this.marker.current);
+      }
     }
   }
 
   hideCallout() {
     if (this.marker.current) {
-      Commands.hideCallout(this.marker.current);
+      if (this.fabricMarker) {
+        // @ts-ignore
+        FabricCommands.hideCallout(this.marker.current);
+      } else {
+        Commands.hideCallout(this.marker.current);
+      }
     }
   }
 
   setCoordinates(coordinate: LatLng) {
     if (this.marker.current) {
-      Commands.setCoordinates(this.marker.current, coordinate);
+      if (this.fabricMarker) {
+        FabricCommands.setCoordinates(
+          // @ts-ignore
+          this.marker.current,
+          coordinate.latitude,
+          coordinate.longitude,
+        );
+      } else {
+        Commands.setCoordinates(this.marker.current, coordinate);
+      }
     }
   }
 
   redrawCallout() {
     if (this.marker.current) {
-      Commands.redrawCallout(this.marker.current);
+      if (this.fabricMarker) {
+        // @ts-ignore
+        FabricCommands.redrawCallout(this.marker.current);
+      } else {
+        Commands.redrawCallout(this.marker.current);
+      }
     }
   }
 
   animateMarkerToCoordinate(coordinate: LatLng, duration: number = 500) {
     if (this.marker.current) {
-      Commands.animateMarkerToCoordinate(
-        this.marker.current,
-        coordinate,
-        duration,
-      );
+      if (this.fabricMarker) {
+        FabricCommands.animateToCoordinates(
+          // @ts-ignore
+          this.marker.current,
+          coordinate.latitude,
+          coordinate.longitude,
+          duration,
+        );
+      } else {
+        Commands.animateMarkerToCoordinate(
+          this.marker.current,
+          coordinate,
+          duration,
+        );
+      }
     }
   }
 
@@ -419,10 +473,11 @@ export class MapMarker extends React.Component<MapMarkerProps> {
 
   render() {
     const {stopPropagation = false} = this.props;
-    let image;
-    if (this.props.image) {
-      image = Image.resolveAssetSource(this.props.image) || {};
-      image = image.uri || this.props.image;
+    if (this.fabricMarker === undefined) {
+      const provider = this.context;
+      this.fabricMarker = !(
+        Platform.OS === 'ios' && provider !== PROVIDER_GOOGLE
+      );
     }
 
     let icon;
@@ -432,6 +487,15 @@ export class MapMarker extends React.Component<MapMarkerProps> {
     }
 
     const AIRMapMarker = this.getNativeComponent();
+    let image;
+    if (this.props.image) {
+      if (this.fabricMarker) {
+        image = this.props.image;
+      } else {
+        const resolvedImage = Image.resolveAssetSource(this.props.image) || {};
+        image = resolvedImage.uri || this.props.image;
+      }
+    }
 
     return (
       <AIRMapMarker
