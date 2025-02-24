@@ -211,7 +211,9 @@ For IOS: configure [App Transport Security](https://developer.apple.com/library/
 
 ## React Native Configuration for Fabric / New Architecture
 
-This library doesn't support the new arch yet due to issues with inserting subviews / interoplayer. we're working on it.
+This library works with Fabric using the [New Renderer Interop Layer](https://github.com/reactwg/react-native-new-architecture/discussions/135)
+
+There is a warning message that those steps are not necessary; but we couldn't get the example working without them so far.
 
 ### Configuration Steps
 

@@ -24,7 +24,6 @@ class AnimatedMarkers extends React.Component<any, any> {
     super(props);
 
     this.state = {
-      supported: false,
       coordinate: new AnimatedRegion({
         latitude: LATITUDE,
         longitude: LONGITUDE,
@@ -50,14 +49,6 @@ class AnimatedMarkers extends React.Component<any, any> {
   }
 
   render() {
-    const {supported} = this.state;
-    if (!supported) {
-      return (
-        <Text style={styles.error}>
-          Animation is Not Available for Fabric Map yet
-        </Text>
-      );
-    }
     return (
       <View style={styles.container}>
         <MapView
@@ -69,7 +60,7 @@ class AnimatedMarkers extends React.Component<any, any> {
             latitudeDelta: LATITUDE_DELTA,
             longitudeDelta: LONGITUDE_DELTA,
           }}>
-          <Marker
+          <Marker.Animated
             ref={(marker: any) => {
               this.marker = marker;
             }}
@@ -89,11 +80,6 @@ class AnimatedMarkers extends React.Component<any, any> {
 }
 
 const styles = StyleSheet.create({
-  error: {
-    position: 'absolute',
-    top: '50%',
-    left: '25%',
-  },
   container: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'flex-end',

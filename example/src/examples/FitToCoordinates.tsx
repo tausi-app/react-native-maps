@@ -34,7 +34,7 @@ const MARKERS = [
 
 const DEFAULT_PADDING = {top: 40, right: 40, bottom: 40, left: 40};
 
-class FitToCoordinates extends React.Component<any, any> {
+class FitToCoordinates extends React.Component {
   map: any;
   async logFrames() {
     const visMarkersFrames = await this.map.getMarkersFrames(true);
@@ -71,7 +71,6 @@ class FitToCoordinates extends React.Component<any, any> {
           ref={ref => {
             this.map = ref;
           }}
-          provider={this.props.provider}
           style={styles.map}
           initialRegion={{
             latitude: LATITUDE,

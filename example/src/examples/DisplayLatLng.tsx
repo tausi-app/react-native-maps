@@ -5,7 +5,6 @@ import {
   Text,
   Dimensions,
   TouchableOpacity,
-  SafeAreaView,
 } from 'react-native';
 
 import MapView, {MAP_TYPES} from 'react-native-maps';
@@ -38,7 +37,7 @@ class DisplayLatLng extends React.Component<any, any> {
   }
 
   jumpRandom() {
-    this.map.setRegion(this.randomRegion());
+    this.setState({region: this.randomRegion()});
   }
 
   animateRandom() {
@@ -63,14 +62,11 @@ class DisplayLatLng extends React.Component<any, any> {
 
   randomCoordinate() {
     const region = this.state.region;
-    const scaleFactor = Math.random() * 10;
     return {
       latitude:
-        region.latitude +
-        (Math.random() - 0.5) * (region.latitudeDelta * scaleFactor),
+        region.latitude + (Math.random() - 0.5) * (region.latitudeDelta / 2),
       longitude:
-        region.longitude +
-        (Math.random() - 0.5) * (region.longitudeDelta * scaleFactor),
+        region.longitude + (Math.random() - 0.5) * (region.longitudeDelta / 2),
     };
   }
 
@@ -83,7 +79,7 @@ class DisplayLatLng extends React.Component<any, any> {
 
   render() {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <MapView
           provider={this.props.provider}
           ref={ref => {
@@ -116,8 +112,6 @@ class DisplayLatLng extends React.Component<any, any> {
             style={[styles.bubble, styles.button]}>
             <Text style={styles.buttonText}>Animate (Coordinate)</Text>
           </TouchableOpacity>
-        </View>
-        <View style={styles.buttonContainer}>
           <TouchableOpacity
             onPress={() => this.animateToRandomBearing()}
             style={[styles.bubble, styles.button]}>
@@ -129,7 +123,7 @@ class DisplayLatLng extends React.Component<any, any> {
             <Text style={styles.buttonText}>Animate (View Angle)</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 }
@@ -162,7 +156,7 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     flexDirection: 'row',
-    marginVertical: 8,
+    marginVertical: 20,
     backgroundColor: 'transparent',
   },
   buttonText: {
