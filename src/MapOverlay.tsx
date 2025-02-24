@@ -87,9 +87,16 @@ export class MapOverlay extends React.Component<MapOverlayProps> {
 
   render() {
     const {opacity = 1.0} = this.props;
-    let image: any;
-    const resolvedImage = Image.resolveAssetSource(this.props.image) || {};
-    image = resolvedImage.uri || this.props.image;
+    let image: string | undefined;
+    if (
+      typeof this.props.image !== 'number' &&
+      this.props.image.uri?.startsWith('http')
+    ) {
+      image = this.props.image.uri;
+    } else {
+      const sourceAsset = Image.resolveAssetSource(this.props.image) || {};
+      image = sourceAsset.uri;
+    }
 
     const AIRMapOverlay = this.getNativeComponent();
 
@@ -114,7 +121,7 @@ type OverlayPressEvent = NativeSyntheticEvent<{
   action: 'overlay-press' | 'image-overlay-press';
 
   /**
-   * @platform iOS: Apple Maps
+   * @platform iOS: Apple maps
    */
   name?: string;
 

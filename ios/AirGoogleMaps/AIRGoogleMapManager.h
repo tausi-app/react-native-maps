@@ -9,14 +9,7 @@
 
 #import <React/RCTViewManager.h>
 
-@class GMSCameraPosition;
-
 @interface AIRGoogleMapManager : RCTViewManager
-
-@property (nonatomic, strong) NSString* googleMapId;
-@property (nonatomic) BOOL zoomTapEnabled;
-@property (nonatomic, strong) UIColor* backgroundColor;
-@property (nonatomic, strong) GMSCameraPosition* camera;
 
 @property (nonatomic, strong) NSDictionary *initialProps;
 

@@ -17,12 +17,11 @@
 #import "AIRGoogleMapUrlTile.h"
 #import "AIRGoogleMapWMSTile.h"
 #import "AIRGoogleMapOverlay.h"
-#import "AIRGoogleMapCoordinate.h"
 #import <GoogleMaps/GoogleMaps.h>
 #import <MapKit/MapKit.h>
 #import <React/UIView+React.h>
 #import <React/RCTBridge.h>
-#import <React/RCTConvert.h>
+#import "RCTConvert+AirMap.h"
 #import <objc/runtime.h>
 
 #ifdef HAVE_GOOGLE_MAPS_UTILS
@@ -69,7 +68,6 @@ id regionAsJSON(MKCoordinateRegion region) {
   BOOL _didPrepareMap;
   BOOL _didCallOnMapReady;
   BOOL _zoomTapEnabled;
-  BOOL _isAnimating;
   NSString* _googleMapId;
 }
 
@@ -88,7 +86,7 @@ id regionAsJSON(MKCoordinateRegion region) {
         [options setCamera:camera];
     }
     self = [super initWithOptions:options];
-
+ 
     if (self) {
     _reactSubviews = [NSMutableArray new];
     _markers = [NSMutableArray array];
@@ -147,92 +145,6 @@ id regionAsJSON(MKCoordinateRegion region) {
            };
 }
 
-- (BOOL) isReady {
-    return _didPrepareMap;
-}
-
--(void) fitToCoordinates:(NSArray<AIRGoogleMapCoordinate *> *) coordinates withEdgePadding:(NSDictionary*) edgePadding animated:(BOOL)animated
-{
-    CLLocationCoordinate2D myLocation = coordinates.firstObject.coordinate;
-         GMSCoordinateBounds *bounds = [[GMSCoordinateBounds alloc] initWithCoordinate:myLocation coordinate:myLocation];
-
-         for (AIRGoogleMapCoordinate *coordinate in coordinates)
-           bounds = [bounds includingCoordinate:coordinate.coordinate];
-
-         // Set Map viewport
-         CGFloat top = [RCTConvert CGFloat:edgePadding[@"top"]];
-         CGFloat right = [RCTConvert CGFloat:edgePadding[@"right"]];
-         CGFloat bottom = [RCTConvert CGFloat:edgePadding[@"bottom"]];
-         CGFloat left = [RCTConvert CGFloat:edgePadding[@"left"]];
-
-         GMSCameraUpdate *cameraUpdate = [GMSCameraUpdate fitBounds:bounds withEdgeInsets:UIEdgeInsetsMake(top, left, bottom, right)];
-
-         if (animated) {
-           [self animateWithCameraUpdate: cameraUpdate];
-         } else {
-           [self moveCamera: cameraUpdate];
-         }
-}
-
--(void) fitToElementsWithEdgePadding:(nonnull NSDictionary *)edgePadding
-             animated:(BOOL)animated
-{
-    CLLocationCoordinate2D myLocation = ((AIRGoogleMapMarker *)(self.markers.firstObject)).realMarker.position;
-    GMSCoordinateBounds *bounds = [[GMSCoordinateBounds alloc] initWithCoordinate:myLocation coordinate:myLocation];
-
-    for (AIRGoogleMapMarker *marker in self.markers)
-      bounds = [bounds includingCoordinate:marker.realMarker.position];
-
-      GMSCameraUpdate* cameraUpdate;
-
-      if ([edgePadding count] != 0) {
-          // Set Map viewport
-          CGFloat top = [RCTConvert CGFloat:edgePadding[@"top"]];
-          CGFloat right = [RCTConvert CGFloat:edgePadding[@"right"]];
-          CGFloat bottom = [RCTConvert CGFloat:edgePadding[@"bottom"]];
-          CGFloat left = [RCTConvert CGFloat:edgePadding[@"left"]];
-
-          cameraUpdate = [GMSCameraUpdate fitBounds:bounds withEdgeInsets:UIEdgeInsetsMake(top, left, bottom, right)];
-      } else {
-          cameraUpdate = [GMSCameraUpdate fitBounds:bounds withPadding:55.0f];
-      }
-    if (animated) {
-      [self animateWithCameraUpdate: cameraUpdate];
-    } else {
-      [self moveCamera: cameraUpdate];
-    }
-}
-
-- (void) fitToSuppliedMarkers:(NSArray*) markers withEdgePadding:(NSDictionary*) edgePadding animated:(BOOL)animated
-{
-    NSPredicate *filterMarkers = [NSPredicate predicateWithBlock:^BOOL(id evaluatedObject, NSDictionary *bindings) {
-      AIRGoogleMapMarker *marker = (AIRGoogleMapMarker *)evaluatedObject;
-      return [marker isKindOfClass:[AIRGoogleMapMarker class]] && [markers containsObject:marker.identifier];
-    }];
-
-    NSArray *filteredMarkers = [self.markers filteredArrayUsingPredicate:filterMarkers];
-
-    CLLocationCoordinate2D myLocation = ((AIRGoogleMapMarker *)(filteredMarkers.firstObject)).realMarker.position;
-    GMSCoordinateBounds *bounds = [[GMSCoordinateBounds alloc] initWithCoordinate:myLocation coordinate:myLocation];
-
-    for (AIRGoogleMapMarker *marker in filteredMarkers)
-      bounds = [bounds includingCoordinate:marker.realMarker.position];
-
-    // Set Map viewport
-    CGFloat top = [RCTConvert CGFloat:edgePadding[@"top"]];
-    CGFloat right = [RCTConvert CGFloat:edgePadding[@"right"]];
-    CGFloat bottom = [RCTConvert CGFloat:edgePadding[@"bottom"]];
-    CGFloat left = [RCTConvert CGFloat:edgePadding[@"left"]];
-
-    GMSCameraUpdate* cameraUpdate = [GMSCameraUpdate fitBounds:bounds withEdgeInsets:UIEdgeInsetsMake(top, left, bottom, right)];
-    if (animated) {
-      [self animateWithCameraUpdate:cameraUpdate
-       ];
-    } else {
-      [self moveCamera: cameraUpdate];
-    }
-}
-
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wobjc-missing-super-calls"
 - (void)insertReactSubview:(id<RCTComponent>)subview atIndex:(NSInteger)atIndex {
@@ -240,17 +152,12 @@ id regionAsJSON(MKCoordinateRegion region) {
   // This is where we intercept them and do the appropriate underlying mapview action.
   if ([subview isKindOfClass:[AIRGoogleMapMarker class]]) {
     AIRGoogleMapMarker *marker = (AIRGoogleMapMarker*)subview;
-    [marker didInsertInMap:self];
+    marker.realMarker.map = self;
     [self.markers addObject:marker];
   } else if ([subview isKindOfClass:[AIRGoogleMapPolygon class]]) {
     AIRGoogleMapPolygon *polygon = (AIRGoogleMapPolygon*)subview;
-    [polygon didInsertInMap:self];
+    polygon.polygon.map = self;
     [self.polygons addObject:polygon];
-      
-  } else if ([NSStringFromClass([subview class]) isEqualToString:@"RNMapsGooglePolygonView"]){
-//      RNMapsGooglePolygonView *polygon = (RNMapsGooglePolygonView*)subview;
-//      [polygon didInsertInMap:self];
-      [self.polygons addObject:subview];
   } else if ([subview isKindOfClass:[AIRGoogleMapPolyline class]]) {
     AIRGoogleMapPolyline *polyline = (AIRGoogleMapPolyline*)subview;
     polyline.polyline.map = self;
@@ -295,9 +202,7 @@ id regionAsJSON(MKCoordinateRegion region) {
     AIRGoogleMapMarker *marker = (AIRGoogleMapMarker*)subview;
     marker.realMarker.map = nil;
     [self.markers removeObject:marker];
-  } else if ([NSStringFromClass([subview class]) isEqualToString:@"RNMapsGooglePolygonView"]) {
-      [self.polygons removeObject:subview];
-   } else if ([subview isKindOfClass:[AIRGoogleMapPolygon class]]) {
+  } else if ([subview isKindOfClass:[AIRGoogleMapPolygon class]]) {
     AIRGoogleMapPolygon *polygon = (AIRGoogleMapPolygon*)subview;
     polygon.polygon.map = nil;
     [self.polygons removeObject:polygon];
@@ -362,19 +267,6 @@ id regionAsJSON(MKCoordinateRegion region) {
     ];
 }
 
-- (NSDictionary *) getCameraDic {
-    GMSCameraPosition *camera = [self camera];
-    return @{
-        @"center": @{
-                @"latitude": @(camera.target.latitude),
-                @"longitude": @(camera.target.longitude),
-                },
-        @"pitch": @(camera.viewingAngle),
-        @"heading": @(camera.bearing),
-        @"zoom": @(camera.zoom),
-    };
-}
-
 - (void)layoutSubviews {
   [super layoutSubviews];
   if(_didLayoutSubviews) return;
@@ -411,7 +303,7 @@ id regionAsJSON(MKCoordinateRegion region) {
 }
 
 - (void)setRegion:(MKCoordinateRegion)region {
-    if (_isAnimating || !CLLocationCoordinate2DIsValid(region.center)) return;
+  // TODO: The JS component is repeatedly setting region unnecessarily. We might want to deal with that in here.
   _region = region;
   if(_didLayoutSubviews) {
     self.camera = [AIRGoogleMap makeGMSCameraPositionFromMap:self  andMKCoordinateRegion:region];
@@ -431,7 +323,6 @@ id regionAsJSON(MKCoordinateRegion region) {
 }
 
 - (void)setCameraProp:(GMSCameraPosition*)camera {
-    if (_isAnimating || !CLLocationCoordinate2DIsValid([camera target])) return;
     _initialCamera = camera;
     if(_didLayoutSubviews) {
       self.camera = camera;
@@ -513,7 +404,6 @@ id regionAsJSON(MKCoordinateRegion region) {
 }
 
 - (void)willMove:(BOOL)gesture {
-    _isAnimating = YES;
   id event = @{@"isGesture": [NSNumber numberWithBool:gesture]};
   if (self.onRegionChangeStart) self.onRegionChangeStart(event);
 }
@@ -547,7 +437,6 @@ id regionAsJSON(MKCoordinateRegion region) {
                @"isGesture": [NSNumber numberWithBool:isGesture],
                };
   if (self.onChange) self.onChange(event);  // complete
-    _isAnimating = NO;
 }
 
 - (void)setMapPadding:(UIEdgeInsets)mapPadding {
@@ -690,11 +579,11 @@ id regionAsJSON(MKCoordinateRegion region) {
   return self.settings.myLocationButton;
 }
 
-- (void)setMinZoom:(CGFloat)minZoomLevel {
+- (void)setMinZoomLevel:(CGFloat)minZoomLevel {
   [self setMinZoom:minZoomLevel maxZoom:self.maxZoom ];
 }
 
-- (void)setMaxZoom:(CGFloat)maxZoomLevel {
+- (void)setMaxZoomLevel:(CGFloat)maxZoomLevel {
   [self setMinZoom:self.minZoom maxZoom:maxZoomLevel ];
 }
 
@@ -721,7 +610,7 @@ id regionAsJSON(MKCoordinateRegion region) {
     AIRGMSMarker *airMarker = (AIRGMSMarker *) self.selectedMarker;
     AIRGoogleMapMarker *fakeAirMarker = (AIRGoogleMapMarker *) airMarker.fakeMarker;
     AIRGoogleMapMarker *fakeSelectedMarker = (AIRGoogleMapMarker *) selectedMarker.fakeMarker;
-
+    
     if (airMarker && airMarker.onDeselect) {
         airMarker.onDeselect([fakeAirMarker makeEventData:@"marker-deselect"]);
     }
@@ -729,7 +618,7 @@ id regionAsJSON(MKCoordinateRegion region) {
     if (airMarker && self.onMarkerDeselect) {
         self.onMarkerDeselect([fakeAirMarker makeEventData:@"marker-deselect"]);
     }
-
+    
     if (selectedMarker && selectedMarker.onSelect) {
         selectedMarker.onSelect([fakeSelectedMarker makeEventData:@"marker-select"]);
     }
@@ -774,63 +663,6 @@ id regionAsJSON(MKCoordinateRegion region) {
                                                         region.center.longitude - longitudeDelta);
   GMSCoordinateBounds *bounds = [[GMSCoordinateBounds alloc] initWithCoordinate:a coordinate:b];
   return [map cameraForBounds:bounds insets:UIEdgeInsetsZero];
-}
-
-#pragma mark - RNMapsAirModuleDelegate
-
-- (NSDictionary *) getCoordinatesForPoint:(CGPoint)point
-{
-    CLLocationCoordinate2D coordinate = [self.projection coordinateForPoint:point];
-    return @{
-              @"latitude": @(coordinate.latitude),
-              @"longitude": @(coordinate.longitude),
-    };
-}
-
-- (NSDictionary *) getPointForCoordinates:(CLLocationCoordinate2D)location
-{
-    CGPoint touchPoint = [self.projection pointForCoordinate:location];
-    return @{
-        @"x": @(touchPoint.x),
-        @"y": @(touchPoint.y),
-    };
-}
-
--(void) takeSnapshotWithConfig:(NSDictionary *)config success:(RCTPromiseResolveBlock)success error:(RCTPromiseRejectBlock)error {
-    /* unused
-    NSNumber *width = [config objectForKey:@"width"];
-    NSNumber *height = [config objectForKey:@"height"];
-    */
-    NSNumber *quality = [config objectForKey:@"quality"];
-
-    NSString *format = [config objectForKey:@"format"];
-    NSString *result = [config objectForKey:@"result"];
-    NSTimeInterval timeStamp = [[NSDate date] timeIntervalSince1970];
-    NSString *pathComponent = [NSString stringWithFormat:@"Documents/snapshot-%.20lf.%@", timeStamp, format];
-    NSString *filePath = [NSHomeDirectory() stringByAppendingPathComponent: pathComponent];
-
-    // TODO: currently we are ignoring width, height, region
-
-    UIGraphicsBeginImageContextWithOptions(self.frame.size, YES, 0.0f);
-    [self.layer renderInContext:UIGraphicsGetCurrentContext()];
-    UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
-
-    NSData *data;
-    if ([format isEqualToString:@"png"]) {
-        data = UIImagePNGRepresentation(image);
-
-    } else if([format isEqualToString:@"jpg"]) {
-          data = UIImageJPEGRepresentation(image, quality.floatValue);
-    }
-
-    if ([result isEqualToString:@"file"]) {
-        [data writeToFile:filePath atomically:YES];
-        success(filePath);
-    } else if ([result isEqualToString:@"base64"]) {
-        success([data base64EncodedStringWithOptions:NSDataBase64EncodingEndLineWithCarriageReturn]);
-    }
-
-  UIGraphicsEndImageContext();
 }
 
 #pragma mark - Utils
@@ -1087,51 +919,6 @@ id regionAsJSON(MKCoordinateRegion region) {
   return _kmlSrc;
 }
 
-- (void) setKMLData:(NSData *) urlData {
-    GMUKMLParser *parser = [[GMUKMLParser alloc] initWithData:urlData];
-    [parser parse];
-
-    NSUInteger index = 0;
-    NSMutableArray *markers = [[NSMutableArray alloc]init];
-
-    for (GMUPlacemark *place in parser.placemarks) {
-
-      CLLocationCoordinate2D location =((GMUPoint *) place.geometry).coordinate;
-
-      AIRGoogleMapMarker *marker = (AIRGoogleMapMarker *)[[AIRGoogleMapMarkerManager alloc] view];
-      if (!marker.bridge) {
-        marker.bridge = _bridge;
-      }
-      marker.identifier = place.title;
-      marker.coordinate = location;
-      marker.title = place.title;
-      marker.subtitle = place.snippet;
-      marker.pinColor = place.style.fillColor;
-      marker.imageSrc = [AIRGoogleMap GetIconUrl:place parser:parser];
-      marker.layer.backgroundColor = [UIColor clearColor].CGColor;
-      marker.layer.position = CGPointZero;
-
-      [self insertReactSubview:(UIView *) marker atIndex:index];
-
-      [markers addObject:@{@"id": marker.identifier,
-                           @"title": marker.title,
-                           @"description": marker.subtitle,
-                           @"coordinate": @{
-                               @"latitude": @(location.latitude),
-                               @"longitude": @(location.longitude)
-                               }
-                           }];
-
-      index++;
-    }
-
-    id event = @{@"markers": markers};
-    if (self.onKmlReady) self.onKmlReady(event);
-  #else
-      REQUIRES_GOOGLE_MAPS_UTILS();
-  #endif
-}
-
 - (void)setKmlSrc:(NSString *)kmlUrl {
 #ifdef HAVE_GOOGLE_MAPS_UTILS
 
@@ -1141,28 +928,53 @@ id regionAsJSON(MKCoordinateRegion region) {
   NSData *urlData = nil;
 
   if ([url isFileURL]) {
-      [self setKMLData:[NSData dataWithContentsOfURL:url]];
+    urlData = [NSData dataWithContentsOfURL:url];
   } else {
-      __weak AIRGoogleMap *weakSelf = self;
- 
-      NSURLSession *session = [NSURLSession sharedSession];
-      NSURLSessionDataTask *dataTask = [session dataTaskWithURL:url
-                                              completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
-          if (error) {
-              NSLog(@"Error fetching data: %@", error.localizedDescription);
-              return;
-          } else {
-              dispatch_async(dispatch_get_main_queue(), ^{
-                  AIRGoogleMap *strongSelf = weakSelf;
-                  [strongSelf setKMLData:data];
-              });
-
-          }
-      }];
-      [dataTask resume];
+    urlData = [[NSFileManager defaultManager] contentsAtPath:kmlUrl];
   }
 
-  
+  GMUKMLParser *parser = [[GMUKMLParser alloc] initWithData:urlData];
+  [parser parse];
+
+  NSUInteger index = 0;
+  NSMutableArray *markers = [[NSMutableArray alloc]init];
+
+  for (GMUPlacemark *place in parser.placemarks) {
+
+    CLLocationCoordinate2D location =((GMUPoint *) place.geometry).coordinate;
+
+    AIRGoogleMapMarker *marker = (AIRGoogleMapMarker *)[[AIRGoogleMapMarkerManager alloc] view];
+    if (!marker.bridge) {
+      marker.bridge = _bridge;
+    }
+    marker.identifier = place.title;
+    marker.coordinate = location;
+    marker.title = place.title;
+    marker.subtitle = place.snippet;
+    marker.pinColor = place.style.fillColor;
+    marker.imageSrc = [AIRGoogleMap GetIconUrl:place parser:parser];
+    marker.layer.backgroundColor = [UIColor clearColor].CGColor;
+    marker.layer.position = CGPointZero;
+
+    [self insertReactSubview:(UIView *) marker atIndex:index];
+
+    [markers addObject:@{@"id": marker.identifier,
+                         @"title": marker.title,
+                         @"description": marker.subtitle,
+                         @"coordinate": @{
+                             @"latitude": @(location.latitude),
+                             @"longitude": @(location.longitude)
+                             }
+                         }];
+
+    index++;
+  }
+
+  id event = @{@"markers": markers};
+  if (self.onKmlReady) self.onKmlReady(event);
+#else
+    REQUIRES_GOOGLE_MAPS_UTILS();
+#endif
 }
 
 
@@ -1222,7 +1034,7 @@ id regionAsJSON(MKCoordinateRegion region) {
 }
 // do nothing, passed as options on initialization
 - (void)setLoadingBackgroundColor:(UIColor *)loadingBackgroundColor {
-
+    
 }
 
 

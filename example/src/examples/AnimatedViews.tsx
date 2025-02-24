@@ -1,5 +1,5 @@
 import React from 'react';
-import {StyleSheet, View, Dimensions, Animated, Text} from 'react-native';
+import {StyleSheet, View, Dimensions, Animated} from 'react-native';
 
 import {
   Animated as AnimatedMap,
@@ -189,7 +189,6 @@ class AnimatedViews extends React.Component<any, any> {
     );
 
     this.state = {
-      supported: false,
       panX,
       panY,
       animations,
@@ -319,23 +318,8 @@ class AnimatedViews extends React.Component<any, any> {
   }
 
   render() {
-    const {
-      panX,
-      panY,
-      animations,
-      canMoveHorizontal,
-      markers,
-      region,
-      supported,
-    } = this.state;
-
-    if (!supported) {
-      return (
-        <Text style={styles.error}>
-          Animation is Not Available for Fabric Map yet
-        </Text>
-      );
-    }
+    const {panX, panY, animations, canMoveHorizontal, markers, region} =
+      this.state;
 
     return (
       <View style={styles.container}>
@@ -398,11 +382,6 @@ class AnimatedViews extends React.Component<any, any> {
 }
 
 const styles = StyleSheet.create({
-  error: {
-    position: 'absolute',
-    top: '50%',
-    left: '25%',
-  },
   container: {
     ...StyleSheet.absoluteFillObject,
   },

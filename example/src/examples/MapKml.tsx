@@ -57,7 +57,6 @@ export default class MapKml extends React.Component<any, any> {
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
     justifyContent: 'flex-end',
     alignItems: 'center',
   },
